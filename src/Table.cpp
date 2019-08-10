@@ -85,14 +85,23 @@ bool Table::ProcessTable( )
     {
         Cell* isSolved = NULL;
         for (size_t block = 0; block < block_size*block_size; block++)
-            if (isSolved = Blocks[block].ProcessGroup( ofs, block))
+        {
+            isSolved = Blocks[block].ProcessGroup( ofs, block);
+            if (isSolved)
                 SetChar(isSolved->CellRow(), isSolved->CellCol(), isSolved->CellChar());
-        for (size_t row = 0; row < num_rows; row++)
-            if (isSolved = Rows[row].ProcessGroup(ofs, row))
+        }
+        for (size_t row = 0; row < num_rows; row++) 
+        {
+            isSolved = Rows[row].ProcessGroup(ofs, row);
+            if (isSolved )
                 SetChar(isSolved->CellRow(), isSolved->CellCol(), isSolved->CellChar());
+        }
         for (size_t col = 0; col < num_cols; col++)
-            if (isSolved = Cols[col].ProcessGroup(ofs, col))
+        {
+            isSolved = Cols[col].ProcessGroup(ofs, col);
+            if (isSolved )
                 SetChar(isSolved->CellRow(), isSolved->CellCol(), isSolved->CellChar());
+        }
             // for each valid[char] check each cell in each block
         //   find !solved, and compare against that block row cells
     }
@@ -125,7 +134,7 @@ bool Table::ProcessTable( )
     for (size_t value = 0; value < strlen(chars); value++)
     {
         ofs << value + 1 << endl;
-        vector<vector<size_t>> blkRows;
+        vector<vector<size_t> > blkRows;
         for (size_t blk = 0; blk < block_size; blk++)
         {
             vector<size_t> blkRow;
