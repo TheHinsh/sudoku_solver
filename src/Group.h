@@ -14,13 +14,14 @@ public:
 
     void  AddCell(Cell* cell);
     void  Clear(void);
-    Cell* GroupCell(size_t cellNo);
-    size_t GroupSize(void);
+    Cell* CellAt(size_t cellNo);
+    size_t Size(void);
 
-    Cell* ProcessGroup(ofstream& ofs, size_t group);
-    uint32_t GroupBits(char value);
+    Cell* Process(ofstream& ofs, size_t group);
+    uint32_t Bits(char value);
 
     void Print(ofstream& ofs, size_t group);
+    size_t Total();
 
 private:
     vector<Cell*> cells;

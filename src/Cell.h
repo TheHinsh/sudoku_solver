@@ -4,6 +4,8 @@
 ** - 
 */
 #include <map>
+#include <iostream>
+#include <fstream>
 using namespace std;
 
 class Cell
@@ -11,6 +13,7 @@ class Cell
 public:
     Cell();
     ~Cell();
+    void   Setup(size_t row, size_t col, const char* valid);
     const char* ValidChars(const char* valid = NULL);
     char   CellChar(const char value = '\0');
     size_t CellRow(size_t row = 0);
@@ -20,6 +23,8 @@ public:
     bool   IsPossible(char value);
     uint32_t PossibleTable(bool calculate = true);
     bool   IsSolved();
+    bool   NewlySolved();
+    void   Print(ofstream& ofs, size_t line, const char* func);
 
 
 private:
@@ -28,6 +33,7 @@ private:
     char cellChar; 
     void* cellIcon;
     uint32_t bitTable;
+    bool newlySolved;
     map<char, bool> possible;
 };
 

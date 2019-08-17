@@ -1,15 +1,21 @@
 #include "stdafx.h"
 #include "Table.h"
-#include <iostream>
-#include <fstream>
+
 using namespace std;
 
-Table::Table(const char* output, const char* valid_chars, size_t block_w_h) :
+Table::Table(const char* output, const char empty, const char* valid_chars, size_t block_w_h) :
     filename(output), 
+    empty(empty),
     chars(valid_chars), num_chars(strlen(chars)),
     block_size(block_w_h),
-    num_rows(num_chars), num_cols(num_chars)
+    num_rows(num_chars), num_cols(num_chars),
+    previous(0)
 {
+    // clear out the output file. :)
+    ofs.open(filename, ofstream::out | ofstream::trunc);
+    ofs.close();
+    ofs.open(filename, ofstream::out | ofstream::app);
+
     cells = new Cell *[num_rows];
     for (size_t row = 0; row < num_rows; row++)
         cells[row] = new Cell[num_cols];
@@ -18,9 +24,6 @@ Table::Table(const char* output, const char* valid_chars, size_t block_w_h) :
     Cols = new Group[num_cols];
     ResetGroups();
     SetupCells();
-    size_t mask = (1 << block_size) - 1;
-    for (size_t blk = 0; blk < block_size; blk++)
-        masks.push_back(mask << (block_size*blk));
 }
 
 Table::~Table()
@@ -31,6 +34,7 @@ Table::~Table()
 	delete[] Blocks;
 	delete[] Rows;
 	delete[] Cols;
+    ofs.close();
 }
 
 void Table::ResetGroups()
@@ -52,19 +56,63 @@ void Table::SetupCells()
     {
         for (size_t col = 0; col < num_cols; col++)
         {
-            cells[row][col].ValidChars(chars);
-            cells[row][col].CellRow(row);
-            cells[row][col].CellCol(col);
+            cells[row][col].Setup(row, col, chars);
         }
     }
-    ofstream ofs;
-    ofs.open(filename, ofstream::out | ofstream::trunc);
-    ofs.close();
+}
+
+void Table::FillCells(const char* values)
+{
+    size_t offset = 0;
+    if (!values) return;
+    for (size_t row = 0; row < num_rows; row++)
+    {
+        for (size_t col = 0; col < num_cols; col++)
+        {
+            if(values[offset] != empty)
+            {
+                SetChar(row, col, values[offset]);
+                if (cells[row][col].NewlySolved())
+                {
+                    // cells[row][col].Print(ofs, __LINE__, __FUNCTION__);
+                    RecurseTable();
+                }
+            }
+            offset++;
+        }
+    }
+    ofs << __FUNCTION__ << " complete" << endl;
+}
+
+void Table::RecurseTable()
+{
+    for (size_t row = 0; row < num_rows; row++)
+    {
+        for (size_t col = 0; col < num_cols; col++)
+        {
+            if(cells[row][col].IsSolved())
+            {
+                SetChar(row, col, cells[row][col].CellChar());
+                if(cells[row][col].NewlySolved())
+                {
+                    // cells[row][col].Print(ofs, __LINE__, __FUNCTION__);
+                    RecurseTable();
+                }
+            }
+        }
+    }
 }
 
 bool Table::ProcessTable( )
 {
     size_t solve_count = 0;
+    size_t num_cells = num_rows * num_cols;
+    size_t max_total = 0;
+    for(size_t i = 0; i < num_chars; i++)
+    {
+        max_total += chars[i] - chars[0] + 1;
+    }
+    ofs << "Starting " << __FUNCTION__ << endl;
     for (size_t row = 0; row < num_rows; row++)
     {
         for (size_t col = 0; col < num_cols; col++)
@@ -72,135 +120,162 @@ bool Table::ProcessTable( )
             if (cells[row][col].IsSolved())
             {
                 solve_count++;
-                ClearRow(row, col, cells[row][col].CellChar());
-                ClearCol(row, col, cells[row][col].CellChar());
+                SetChar(row, col, cells[row][col].CellChar());
+                if(cells[row][col].NewlySolved())
+                {
+                    // cells[row][col].Print(ofs, __LINE__, __FUNCTION__);
+                    RecurseTable();
+                }
             }
         }
     }
+    if (IsSolved(solve_count, ofs)) return true;
 
-    ofstream ofs;
-    ofs.open(filename, ofstream::out | ofstream::app);
-    ofs << "solve_count " << solve_count << " total " << (num_rows*num_cols) << endl;
-    for (size_t repeat = 0; repeat < 3; repeat++)
+    ofs << "solve_count " << solve_count << " total " << num_cells << endl;
+    Cell* isSolved = NULL;
+    solve_count = 0;
+    for (size_t row = 0; row < num_rows; row++) 
     {
-        Cell* isSolved = NULL;
-        for (size_t block = 0; block < block_size*block_size; block++)
+        // ofs << "Row " << row+1 << " total " << Rows[row].Total() << endl;
+        isSolved = Rows[row].Process(ofs, row);
+        solve_count += (isSolved)?1:0;
+        if (isSolved )
         {
-            isSolved = Blocks[block].ProcessGroup( ofs, block);
-            if (isSolved)
-                SetChar(isSolved->CellRow(), isSolved->CellCol(), isSolved->CellChar());
+            SetChar(isSolved->CellRow(), isSolved->CellCol(), isSolved->CellChar());
+            if(isSolved->NewlySolved())
+            {
+                // isSolved->Print(ofs, __LINE__, __FUNCTION__);
+                RecurseTable();
+            }
         }
-        for (size_t row = 0; row < num_rows; row++) 
-        {
-            isSolved = Rows[row].ProcessGroup(ofs, row);
-            if (isSolved )
-                SetChar(isSolved->CellRow(), isSolved->CellCol(), isSolved->CellChar());
-        }
-        for (size_t col = 0; col < num_cols; col++)
-        {
-            isSolved = Cols[col].ProcessGroup(ofs, col);
-            if (isSolved )
-                SetChar(isSolved->CellRow(), isSolved->CellCol(), isSolved->CellChar());
-        }
-            // for each valid[char] check each cell in each block
-        //   find !solved, and compare against that block row cells
     }
-    streamsize wd = ofs.width();
-    //ofs << "Block " << endl;
-    //for (size_t value = 0; value < strlen(chars); value++)
-    //{
-    //    ofs << value+1 << " | ";
-    //    for (size_t block = 0; block < block_size*block_size; block++)
-    //    {
-    //        ofs.width(4);
-    //        ofs << hex << Blocks[block].GroupBits(chars[value]) << " ";
-    //    }
-    //    ofs << endl;
-    //}
-    //ofs << "Row " << endl;
-    //for (size_t value = 0; value < strlen(chars); value++)
-    //{
-    //    ofs << value + 1 << " | ";
-    //    for (size_t row = 0; row < num_rows; row++)
-    //    {
-    //        ofs.width(4);
-    //        ofs << hex << Rows[row].GroupBits(chars[value]) << " ";
-    //    }
-    //    ofs << endl;
-    //    ofs.width(wd);
-    //}
-    //ofs << endl;
-
-    for (size_t value = 0; value < strlen(chars); value++)
+    if (IsSolved(solve_count, ofs)) return true;
+    solve_count = 0;
+    for (size_t col = 0; col < num_cols; col++)
     {
-        ofs << value + 1 << endl;
-        vector<vector<size_t> > blkRows;
-        for (size_t blk = 0; blk < block_size; blk++)
+        // ofs << "Col " << col+1 << " total " << Cols[col].Total() << endl;
+        isSolved = Cols[col].Process(ofs, col);
+        solve_count += (isSolved)?1:0;
+        if (isSolved )
         {
-            vector<size_t> blkRow;
-            for (size_t r = 0; r < block_size; r++)
+            SetChar(isSolved->CellRow(), isSolved->CellCol(), isSolved->CellChar());
+            if(isSolved->NewlySolved())
             {
-                for (size_t b = 0; b < block_size; b++)
-                    blkRow.push_back(((Rows[blk*block_size + r].GroupBits(chars[value]) & masks[b]) >> (b*block_size)));
+                // isSolved->Print(ofs, __LINE__, __FUNCTION__);
+                RecurseTable();
             }
-            blkRows.push_back(blkRow);
         }
-        for (size_t r = 0; r < blkRows.size(); r++)
+    }
+    if (IsSolved(solve_count, ofs)) return true;
+    solve_count = 0;
+    for (size_t block = 0; block < block_size*block_size; block++)
+    {
+        // ofs << "Blk " << block+1 << " total " << Blocks[block].Total() << endl;
+        isSolved = Blocks[block].Process( ofs, block);
+        solve_count += (isSolved)?1:0;
+        if (isSolved)
         {
-            ofs << r << " | ";
-            for (size_t b = 0; b < blkRows[r].size(); b++)
+            SetChar(isSolved->CellRow(), isSolved->CellCol(), isSolved->CellChar());
+            if(isSolved->NewlySolved())
             {
-                ofs.width(4);
-                ofs << blkRows[r][b] << " ";
+                // isSolved->Print(ofs, __LINE__, __FUNCTION__);
+                RecurseTable();
             }
-            ofs << endl;
+        }
+    }
+    if(previous == solve_count)
+    {
+        ofs << "Unable to solve any more" << endl;
+        for (size_t c = 0; c < num_chars ; c++)
+        {
+            // bitmap for this char
+            // PrintCharBitMap(c);
+            streamsize wd = ofs.width();
+            for (size_t row = 0; row < block_size*block_size; row+=block_size)
+            {
+                for (size_t col = 0; col < block_size*block_size; col+=block_size)
+                {
+                    size_t myblk = BlockNum(row,col);
+                    size_t blkBits = Blocks[myblk].Bits(chars[c]);
+                    for(size_t oneBit = 0; oneBit < num_chars; oneBit++)
+                    {
+                        Cell* theOne = Blocks[myblk].CellAt(oneBit);
+                        if(blkBits == (1 << (num_chars - oneBit - 1)) )
+                        {
+                            SetChar(theOne->CellRow(), theOne->CellCol(), chars[c]);
+                            if(theOne->NewlySolved())
+                            {
+                                theOne->Print(ofs, __LINE__, __FUNCTION__);
+                                RecurseTable();
+                            }
+                        }
+                    }
+                    ofs.width(4);
+                    ofs.fill(' ');
+                    // ofs << hex << blkBits << ' ';
+                    size_t sBits = blkBits;
+                    size_t off = 0;
+                    size_t ctst1 = (0 << (2*block_size) | 1 << block_size | 1);
+                    size_t ctst2 = (1 << (2*block_size) | 0 << block_size | 1);
+                    size_t ctst3 = (1 << (2*block_size) | 1 << block_size | 1);
+                    // size_t ctst4 = (1 << (2*block_size) | 1 << block_size | 0);
+                    while((sBits & 1) == 0)
+                    {
+                        sBits >>= 1;
+                        off++;
+                    }
+                    if(sBits == ctst1 || sBits == ctst2 || sBits == ctst3)
+                    {
+                        size_t colClear = col + block_size - (off%block_size) - 1;
+                        for (size_t r = 0; r < num_rows; r++)
+                        {
+                            if(BlockNum(r,colClear) != myblk)
+                            {
+                                cells[r][colClear].SelectPossible(chars[c], false); 
+                            }
+                        }
+                        RecurseTable();
+                        // PrintCharBitMap(c);
+                    }
+                    off = 0;
+                    sBits = blkBits;
+                    size_t rtst1 = (0 << 2 | 1 << 1 | 1);
+                    size_t rtst2 = (1 << 2 | 0 << 1 | 1);
+                    size_t rtst3 = (1 << 2 | 1 << 1 | 1);
+                    // size_t rtst4 = (1 << 2 | 1 << 1 | 0);
+                    while((sBits & 1) == 0)
+                    {
+                        sBits >>= 1;
+                        off++;
+                    }
+                    if(sBits == rtst1 || sBits == rtst2 || sBits == rtst3)
+                    {
+                        size_t rowClear = row + block_size - (off/block_size) -1;
+                        for (size_t column = 0; column < num_cols; column++)
+                        {
+                            if(BlockNum(rowClear,column) != myblk)
+                            {
+                                cells[rowClear][column].SelectPossible(chars[c], false); 
+                            }
+                        }
+                        RecurseTable();
+                        // PrintCharBitMap(c);
+                    }
+                    // ofs << endl;
+                }
+            }
             ofs.width(wd);
         }
-
-        ofs << endl;
     }
-    //ofs << "Col " << endl;
-    //for (size_t value = 0; value < strlen(chars); value++)
-    //{
-    //    ofs << value+1 << " | ";
-    //    for (size_t col = 0; col < num_cols; col++)
-    //    {
-    //        ofs.width(4);
-    //        ofs << hex << Cols[col].GroupBits(chars[value]) << " ";
-    //    }
-    //    ofs << endl;
-    //    ofs.width(wd);
-    //}
-    ofs.close();
-    return (solve_count == (num_rows*num_cols));
+    previous = solve_count;
+    Print();
+    return (solve_count == num_cells);
 }
 
 void Table::Print()
 {
-    ofstream ofs;
-    ofs.open(filename, ofstream::out | ofstream::app);
-
     ofs << "Table: " << num_chars << " x " << num_chars << endl;
-    PrintLine(ofs, '=');
-
-    for (size_t row = 0; row < num_rows; row++)
-    {
-        ofs << row + 1 << " | ";
-        for (size_t col = 0; col < num_cols; col++)
-        {
-            ofs.fill(' ');
-            ofs.width(3);
-            ofs << cells[row][col].CellChar();
-            if ((col+1) % block_size)
-                ofs << "  ";
-            else
-                ofs << " |";
-        }
-        ofs << endl;
-        if (((row + 1) % block_size) == 0)
-            PrintLine(ofs, '-');
-    }
-    PrintLine(ofs, '=');
+    PrintLine('=');
     for (size_t row = 0; row < num_rows; row++)
     {
         ofs << row + 1 << " | ";
@@ -210,13 +285,19 @@ void Table::Print()
             ofs.width(4);
             if (cells[row][col].IsSolved())
             {
-                ofs.fill('*');
+                char solved = '*';
+                if (cells[row][col].NewlySolved())
+                {
+                    solved = '+';
+                    // SetChar(row, col, cells[row][col].CellChar());
+                }
+                ofs.fill(solved);
                 ofs << cells[row][col].CellChar();
             }
             else
             {
                 ofs.fill(' ');
-                ofs << right << hex << cells[row][col].PossibleTable();
+                ofs << right << hex << cells[row][col].PossibleTable(false);
             }
             if (((col + 1) % block_size) == 0)
                 ofs << "|";
@@ -226,13 +307,49 @@ void Table::Print()
         }
         ofs << endl;
         if (((row + 1) % block_size) == 0)
-            PrintLine(ofs, '-');
+            PrintLine('-');
     }
+    PrintLine('=');
+    size_t *colTotal = new size_t[num_rows];
+    for (size_t row = 0; row < num_rows; row++)
+    {
+        colTotal[row] = 0;
+    }
+    for (size_t row = 0; row < num_rows; row++)
+    {
+        size_t rowTotal = 0;
+        ofs << row + 1 << " | ";
+        for (size_t col = 0; col < num_cols; col++)
+        {
+            ofs.fill(' ');
+            ofs.width(3);
+            ofs << cells[row][col].CellChar();
+            if(cells[row][col].CellChar() != ' ')
+            {
+                rowTotal += (cells[row][col].CellChar() - '1' + 1);
+                colTotal[col] += (cells[row][col].CellChar() - '1' + 1);
+            }
+            if ((col+1) % block_size)
+                ofs << "  ";
+            else
+                ofs << " |";
+        }
+        ofs << ' ' << dec << rowTotal << endl;
+        if (((row + 1) % block_size) == 0)
+            PrintLine('-');
+    }
+    ofs << "   ";
+    for (size_t row = 0; row < num_rows; row++)
+    {
+        ofs.width(5);
+        ofs.fill(' ');
+        ofs << colTotal[row]; // Incorrect value!!
+    }
+
     ofs << endl;
-    ofs.close();
 }
 
-void Table::PrintLine(ofstream& ofs, char value)
+void Table::PrintLine( char value)
 {
     streamsize wd = ofs.width();
     ofs << "   ";
@@ -242,8 +359,38 @@ void Table::PrintLine(ofstream& ofs, char value)
     ofs << endl;
     ofs.width(wd);
 }
-void Table::SetChar(size_t row, size_t col, char value) 
+
+void Table::PrintCharBitMap(size_t index)
 {
+    ofs << "Char Bitmap: " << num_chars << " x " << num_chars << " char " << chars[index] << endl;
+    PrintLine('=');
+    for (size_t row = 0; row < num_rows; row++)
+    {
+        ofs << row + 1 << " | ";
+        for (size_t col = 0; col < num_cols; col++)
+        {
+            streamsize wd = ofs.width();
+            ofs.width(4);
+            ofs.fill(' ');
+            char value = ((1 << index) & cells[row][col].PossibleTable(false))?chars[index]:'*';
+            ofs << right << value;
+            if (((col + 1) % block_size) == 0)
+                ofs << "|";
+            else
+                ofs << " ";
+            ofs.width(wd);
+        }
+        ofs << endl;
+        if (((row + 1) % block_size) == 0)
+            PrintLine('-');
+    }
+    PrintLine('=');
+}
+
+void Table::SetChar(size_t row, size_t col, char value, bool verbose) 
+{
+    if(verbose)
+        ofs << __FUNCTION__ << " Row " << row + 1 << " Col " << col + 1 << " value " << value << endl;
     ClearRow(row, col, value);
     ClearCol(row, col, value);
     ClearBlk(row, col, value);

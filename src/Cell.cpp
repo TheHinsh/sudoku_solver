@@ -4,7 +4,8 @@
 Cell::Cell() :
     cellRow(0), cellCol(0),
     validChars(NULL), cellChar(' '),
-    cellIcon(NULL), bitTable(0)
+    cellIcon(NULL), bitTable(0),
+    newlySolved(true)
 {
 }
 
@@ -12,12 +13,19 @@ Cell::~Cell()
 {
 }
 
+void Cell::Setup(size_t row, size_t col, const char* valid)
+{
+    ValidChars(valid);
+    CellRow(row);
+    CellCol(col);
+}
 const char* Cell::ValidChars(const char* value)
 {
     if (value)
     {
         for (size_t i = 0; i < strlen(value); i++)
             possible[value[i]] = true;
+        bitTable = (1 << strlen(value)) - 1;
         validChars = value;
     }
     return validChars;
@@ -30,6 +38,7 @@ char Cell::CellChar(const char value)
         for (size_t i = 0; i < strlen(validChars); i++)
             possible[validChars[i]] = false;
         possible[value] = true;
+        bitTable = (1 << (value - validChars[0]));
         cellChar = value;
     }
     return cellChar;
@@ -59,6 +68,7 @@ void* Cell::CellIcon(void* value)
 void Cell::SelectPossible(char value, bool isPossible)
 {
     possible[value] = isPossible;
+    PossibleTable(true);
 }
 
 bool Cell::IsPossible(char value)
@@ -76,6 +86,11 @@ uint32_t Cell::PossibleTable(bool calculate)
         for (size_t i = 0; i < len; i++)
             if (possible[validChars[i]])
                 ret |= (1 << i);
+        if (ret == 0)
+        {
+            // error, restart this cell.
+            ret = (1 << len) - 1;
+        }
         bitTable = ret;
     }
     return bitTable;
@@ -99,3 +114,14 @@ bool Cell::IsSolved()
     return (ret == 1 );
 }
 
+bool Cell::NewlySolved() 
+{ 
+    bool ret = newlySolved; 
+    newlySolved = false; 
+    return ret; 
+}
+
+void Cell::Print(ofstream& ofs, size_t line, const char* func)
+{
+    ofs << func << " " << line << " Row " << cellRow + 1 << " Col " << cellCol + 1 << " value " << cellChar << endl;
+}

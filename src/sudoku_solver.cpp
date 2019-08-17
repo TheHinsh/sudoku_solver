@@ -8,107 +8,43 @@
 // hello.c
 #include <stdio.h>
  
-void SetupTable()
+void TestTable()
 {
     // do everything on the command line, and exit
-    Table tbl("table1.txt", "123456789");
-    tbl.SetChar(0, 1, '2');
-    tbl.SetChar(0, 6, '5');
-    tbl.SetChar(0, 7, '6');
+    Table tbl("table1.txt", '*', "123456789");
+    tbl.FillCells(
+#ifdef EASY
+    "9658***41"
+    "13***6*57"
+    "**2*91***"
+    "357*89***"
+    "42****3*9"
+    "*****24**"
+    "28*7**6**"
+    "****2**1*"
+    "673*185*4"
+#else // EXPERT
+    "*5***91**"
+    "6****5***"
+    "8*2*****3"
+    "**71*3***"
+    "3***2****"
+    "*6******5"
+    "******96*"
+    "*9**78***"
+    "586*9****"
+#endif
+    );
 
-    tbl.SetChar(1, 0, '1');
-    tbl.SetChar(1, 1, '6');
-    tbl.SetChar(1, 3, '5');
-    tbl.SetChar(1, 4, '7');
-    tbl.SetChar(1, 7, '8');
-
-    tbl.SetChar(2, 0, '7');
-    tbl.SetChar(2, 3, '2');
-    tbl.SetChar(2, 5, '3');
-    tbl.SetChar(2, 6, '1');
-    tbl.SetChar(2, 7, '4');
-    tbl.SetChar(2, 8, '9');
-
-    tbl.SetChar(3, 1, '9');
-    tbl.SetChar(3, 3, '1');
-    tbl.SetChar(3, 8, '2');
-    
-    tbl.SetChar(4, 0, '3');
-    tbl.SetChar(4, 1, '1');
-    tbl.SetChar(4, 2, '2');
-    tbl.SetChar(4, 4, '4');
-    tbl.SetChar(4, 6, '9');
-
-    tbl.SetChar(5, 0, '6');
-    tbl.SetChar(5, 2, '7');
-    tbl.SetChar(5, 4, '5');
-    tbl.SetChar(5, 7, '3');
-    
-    tbl.SetChar(6, 1, '7');
-    tbl.SetChar(6, 2, '1');
-    tbl.SetChar(6, 4, '8');
-    tbl.SetChar(6, 7, '9');
-    tbl.SetChar(6, 8, '4');
-
-    tbl.SetChar(7, 1, '8');
-    tbl.SetChar(7, 2, '4');
-    tbl.SetChar(7, 3, '6');
-    tbl.SetChar(7, 6, '3');
-    tbl.SetChar(7, 7, '2');
-    tbl.SetChar(7, 8, '5');
-
-    tbl.SetChar(8, 8, '8');
     tbl.Print();
 
-    for (size_t t = 0; t < 10; t++)
+    for (size_t t = 0; t < 100; t++)
         if (tbl.ProcessTable())
             break;
-    tbl.Print();
-
-    Table tbl2("solver.txt", "123456789");
-    tbl2.SetChar(0, 1, '5');
-    tbl2.SetChar(0, 4, '3');
-    tbl2.SetChar(0, 6, '4');
-
-    tbl2.SetChar(1, 1, '3');
-    tbl2.SetChar(1, 2, '8');
-    tbl2.SetChar(1, 3, '9');
-    tbl2.SetChar(1, 4, '4');
-
-    tbl2.SetChar(2, 0, '9');
-    tbl2.SetChar(2, 4, '8');
-    tbl2.SetChar(2, 5, '6');
-    
-    tbl2.SetChar(3, 1, '9');
-    tbl2.SetChar(3, 2, '4');
-    tbl2.SetChar(3, 3, '3');
-    tbl2.SetChar(3, 8, '5');
-
-    tbl2.SetChar(4, 2, '1');
-    tbl2.SetChar(4, 6, '6');
-
-    tbl2.SetChar(5, 4, '9');
-    tbl2.SetChar(5, 7, '3');
-    tbl2.SetChar(5, 8, '1');
-
-    tbl2.SetChar(6, 7, '7');
-
-    tbl2.SetChar(7, 1, '7');
-    tbl2.SetChar(7, 2, '9');
-    tbl2.SetChar(7, 7, '4');
-
-    tbl2.SetChar(8, 2, '3');
-    tbl2.SetChar(8, 4, '6');
-
-    tbl2.Print();
-
-    for (size_t t = 0; t < 3; t++)
-        if (tbl2.ProcessTable())
-            break;
-    tbl2.Print();
 }
+
 int main() {
-    SetupTable();
+    TestTable();
     return 0;
 }
 
@@ -137,7 +73,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     // TODO: Place code here.
     if (GetCommandLine())
     {
-        SetupTable();
+        TestTable();
         return TRUE;
     }
     // Initialize global strings
