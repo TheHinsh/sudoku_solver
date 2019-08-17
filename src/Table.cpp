@@ -272,12 +272,26 @@ bool Table::ProcessTable( )
     return (solve_count == num_cells);
 }
 
-void Table::Print()
+void Table::Print(bool stdout)
 {
+    if(stdout)
+    {
+        for (size_t r = 0; r < num_rows; r++)
+        {
+            for (size_t c = 0; c < num_cols; c++)
+            {
+                std::cout << " " << cells[r][c].CellChar() ;
+            }
+            std::cout << endl;
+        }
+        return;
+    }
     ofs << "Table: " << num_chars << " x " << num_chars << endl;
     PrintLine('=');
     for (size_t row = 0; row < num_rows; row++)
     {
+        ofs.width(2);
+        ofs.fill(' ');
         ofs << row + 1 << " | ";
         for (size_t col = 0; col < num_cols; col++)
         {
@@ -318,6 +332,8 @@ void Table::Print()
     for (size_t row = 0; row < num_rows; row++)
     {
         size_t rowTotal = 0;
+        ofs.fill(' ');
+        ofs.width(2);
         ofs << row + 1 << " | ";
         for (size_t col = 0; col < num_cols; col++)
         {

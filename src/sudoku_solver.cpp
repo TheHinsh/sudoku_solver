@@ -5,46 +5,100 @@
 #include "sudoku_solver.h"
 #include "Table.h"
 
-// hello.c
+#include <iostream>
+#include <fstream>
 #include <stdio.h>
  
-void TestTable()
-{
-    // do everything on the command line, and exit
-    Table tbl("table1.txt", '*', "123456789");
-    tbl.FillCells(
-#ifdef EASY
-    "9658***41"
-    "13***6*57"
-    "**2*91***"
-    "357*89***"
-    "42****3*9"
-    "*****24**"
-    "28*7**6**"
-    "****2**1*"
-    "673*185*4"
-#else // EXPERT
-    "*5***91**"
-    "6****5***"
-    "8*2*****3"
-    "**71*3***"
-    "3***2****"
-    "*6******5"
-    "******96*"
-    "*9**78***"
-    "586*9****"
-#endif
-    );
+enum Options {
+    eCommand = 0,
+    eLogTable,
+    eEmpty,
+    eValidChars,
+    eBlockSize,
+    eEntryTable,
+    numOptions
+};
 
+void DisplayUsage(int argc, char** argv)
+{
+    std::cout << "Usage: " << argv[0] << " log.txt '*' 123456789 3 sudoku.txt" << endl;
+}
+
+char* ReadFile(char* filename, char* validChars, char* emptyChar)
+{
+    size_t numChar = strlen(validChars);
+    size_t tableSize = numChar*numChar;
+    char* values = new char[tableSize];
+    size_t idx = 0;
+    std::ifstream ifs (filename, std::ifstream::in);
+    char c = ifs.get();
+    std::cout << "Valid " << validChars << " empty " << emptyChar << " tableSize " << tableSize << endl;
+    while (ifs.good()) 
+    {
+        if(c != ' ')
+            std::cout << " " << c;
+        for (size_t i = 0; i < strlen(validChars); i++)
+        {
+            if(c == validChars[i] || c == emptyChar[0])
+            {
+                values[idx] = c;
+                if(idx + 1 >= tableSize)
+                {
+                    std::cout << endl;
+                    ifs.close();
+                    return values;
+                }
+                idx++;
+                break;
+            }
+        }
+        c = ifs.get();
+    }
+    std::cout << endl;
+    ifs.close();
+    if(idx != tableSize)
+    {
+        std::cout << "TableSize " << tableSize << " count " << idx << endl;
+        delete[] values;
+        values = NULL;
+    }
+    return values;
+}
+
+int main(int argc, char** argv) 
+{
+    // TestTable();
+    if(argc < numOptions)
+    {
+        DisplayUsage(argc, argv);
+        return 0;
+    }
+    char* logTable = argv[eLogTable];
+    char* emptyChar = argv[eEmpty];
+    char* validChars = argv[eValidChars];
+    size_t blockSize = size_t(atoi(argv[eBlockSize]));
+    char* entryTable = argv[eEntryTable];
+    char* values = ReadFile(entryTable, validChars, emptyChar);
+    if(!values)
+    {
+        std::cout << "Invalid entryTable" << endl;
+        return 1;
+    }
+    Table tbl(logTable, emptyChar[0], validChars, blockSize);
+    tbl.FillCells(values);
     tbl.Print();
 
     for (size_t t = 0; t < 100; t++)
+    {
         if (tbl.ProcessTable())
+        {
+            std::cout << "Success!" << endl;
+            tbl.Print(true);
             break;
-}
-
-int main() {
-    TestTable();
+        }
+    }
+    delete[] values;
+    values = NULL;
     return 0;
 }
 

@@ -16,7 +16,7 @@ public:
     void RecurseTable();
     bool ProcessTable();
     bool IsSolved(size_t solve_count, ofstream& ofs) { if(solve_count == (num_rows*num_cols)) { ofs << "COMPLETE" << endl ; return true; } return false; }
-    void Print();
+    void Print(bool stdout = false);
     void PrintLine(char value);
     void PrintCharBitMap(size_t index);
 
